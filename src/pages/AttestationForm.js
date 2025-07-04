@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import { saveAs } from 'file-saver';
-import { PDFDocument, rgb } from 'pdf-lib';
+import * as fontkit from 'fontkit';
+import { PDFDocument, rgb , StandardFonts} from 'pdf-lib';
 import {
     Container,
     TextField,
@@ -21,7 +22,6 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import {useNotifier} from "../components/Notifier";
 import SelectWithOther from "../components/SelectWithOter";
 import ConfirmDialog from "../components/ConfirmDialog";
-
 
 
 const professions = [
@@ -49,16 +49,68 @@ const countries = ['Россия', 'Узбекистан', 'Казахстан',
 
 const AttestationForm = ({ isEdit = false }) => {
     const notify = useNotifier();
-    const downloadQRCodePdf = async (qrUrl) => {
+
+    const downloadQRCodePdf = async (qrUrl, certificateNumber) => {
         try {
             if (!qrUrl.startsWith('data:image')) {
-                notify("QR-код ещё не сгенерирован", "error")
+                notify("QR-код ещё не сгенерирован", "error");
                 return;
             }
 
             const pdfDoc = await PDFDocument.create();
+            pdfDoc.registerFontkit(fontkit);
             const page = pdfDoc.addPage([595, 842]); // A4
 
+            const fontBytes = await fetch('/fonts/Roboto-Medium.ttf').then(res => res.arrayBuffer());
+            const customFont = await pdfDoc.embedFont(fontBytes);
+
+
+            // Добавляем номер сертификата в правом верхнем углу
+
+
+            const text = certificateNumber.toString().padStart(6, '0');
+            const fontSize = 14;
+            const textWidth = customFont.widthOfTextAtSize(text, fontSize);
+
+
+
+            page.drawText(text, {
+                x: 595 - textWidth - 20, // 20 px от правого края
+                y: 842 - fontSize - 20,  // 20 px от верхнего края
+                size: fontSize,
+                font: customFont,
+                color: rgb(0, 0, 0)
+            });
+
+
+
+
+
+            const titleRu = 'Сертификат о прохождении аттестации';
+            const titleEn = 'Certificate of Completion of Attestation';
+            const titleFontSize = 18;
+
+            const titleRuWidth = customFont.widthOfTextAtSize(titleRu, titleFontSize);
+            const titleEnWidth = customFont.widthOfTextAtSize(titleEn, titleFontSize);
+
+            page.drawText(titleRu, {
+                x: (595 - titleRuWidth) / 2,
+                y: 740,
+                size: titleFontSize,
+                font: customFont,
+                color: rgb(0, 0, 0)
+            });
+
+            page.drawText(titleEn, {
+                x: (595 - titleEnWidth) / 2,
+                y: 715,
+                size: titleFontSize,
+                font: customFont,
+                color: rgb(0, 0, 0)
+            });
+
+
+            // Добавляем QR в центр
             const pngImageBytes = await fetch(qrUrl).then((res) => res.arrayBuffer());
             const pngImage = await pdfDoc.embedPng(pngImageBytes);
             const pngDims = pngImage.scale(1);
@@ -78,11 +130,11 @@ const AttestationForm = ({ isEdit = false }) => {
             saveAs(blob, 'qr-code.pdf');
         } catch (err) {
             console.error('Ошибка при создании PDF:', err);
-            notify('Ошибка при генерации PDF' , "error")
+            notify('Ошибка при генерации PDF', "error");
         }
     };
     const [openConfirm, setOpenConfirm] = useState(false);
-
+    const [certificateNumber, setCertificateNumber] = useState('');
 
     const [form, setForm] = useState({
         fullName: '',
@@ -191,12 +243,14 @@ const AttestationForm = ({ isEdit = false }) => {
                     headers: { 'Content-Type': 'application/json' }
                 });
                 notify("Успешно обновлено", "success");
+                setCertificateNumber(response.data.certificateNumber.toString().padStart(6, '0'));
             } else {
                 // Иначе создаем новую
                 response = await axios.post(`${API}/attestation`, preparedForm, {
                     headers: { 'Content-Type': 'application/json' }
                 });
                 notify("Успешно создано", "success");
+                setCertificateNumber(response.data.certificateNumber.toString().padStart(6, '0'));
                 // ИСПРАВЛЕНИЕ 1: После создания новой анкеты,
                 // ее паспорт становится "оригинальным" для последующих действий.
                 setOriginalPassport(form.passport);
@@ -235,6 +289,7 @@ const AttestationForm = ({ isEdit = false }) => {
         });
         setSelectedFiles([]);
         setQrUrl('');
+        setCertificateNumber('');
         if (location.state) navigate('/', { replace: true });
     };
 
@@ -261,6 +316,7 @@ const AttestationForm = ({ isEdit = false }) => {
                 rfBan: 'Разрешено',
                 photoUrls: [],
             });
+            setCertificateNumber('');
 
             setFormAttestat({
                 attestations: [{ type: '', theory: '', practice: '' }]
@@ -319,14 +375,12 @@ const AttestationForm = ({ isEdit = false }) => {
             console.error('Ошибка генерации QR-кода', err);
         }
     };
-
     const removeAttestation = (index) => {
         if (formAttestat.attestations.length === 1) return;
 
         const updated = formAttestat.attestations.filter((_, i) => i !== index);
         setFormAttestat(prev => ({ ...prev, attestations: updated }));
     };
-
     const handleUpload = async (event) => {
         const formData = new FormData();
         const files = event.target.files;
@@ -377,7 +431,6 @@ const AttestationForm = ({ isEdit = false }) => {
             console.error('Ошибка при скачивании файла:', err);
         }
     };
-
 
     return (
         <Container maxWidth="sm" sx={{ mt: 4, mb: 6 }}>
@@ -694,7 +747,7 @@ const AttestationForm = ({ isEdit = false }) => {
                 <Box mt={2} display="flex" flexDirection="column" alignItems="center">
                     <img src={qrUrl} alt="QR Code" style={{ width: 200, height: 200 }} />
 
-                    <Button variant="outlined" onClick={() => downloadQRCodePdf(qrUrl)}>
+                    <Button variant="outlined" onClick={() => downloadQRCodePdf(qrUrl, certificateNumber)}>
                         Скачать QR-код в PDF
                     </Button>
                 </Box>
