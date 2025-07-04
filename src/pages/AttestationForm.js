@@ -177,6 +177,13 @@ const AttestationForm = ({ isEdit = false }) => {
 
         loadData();
     }, [paramPassport, location.state]);
+    useEffect(() => {
+        if (originalPassport && form.passport !== originalPassport) {
+            setOriginalPassport(null);
+        }
+    }, [form.passport]);
+
+
 
     const onChange = (e) => {
         const { name, value, files } = e.target;
@@ -227,7 +234,6 @@ const AttestationForm = ({ isEdit = false }) => {
                 photoUrls,
                 attestations: formAttestat.attestations
             };
-
 
             if (form.visitDate?.trim()) {
                 preparedForm.visitDate = new Date(form.visitDate);
@@ -339,7 +345,6 @@ const AttestationForm = ({ isEdit = false }) => {
             { type: '', theory: '', practice: '' }
         ]
     });
-
     const [qrUrl, setQrUrl] = useState('');
     const [selectedFiles, setSelectedFiles] = useState([]);
 
