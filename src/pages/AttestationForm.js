@@ -287,12 +287,12 @@ const AttestationForm = ({ isEdit = false }) => {
         setFormAttestat({
             attestations: [{ type: '', theory: '', practice: '' }]
         });
+        setOriginalPassport(null);
         setSelectedFiles([]);
         setQrUrl('');
         setCertificateNumber('');
         if (location.state) navigate('/', { replace: true });
     };
-
     const handleDeleteAttestation = async () => {
         if (!originalPassport) return;
 
@@ -334,7 +334,6 @@ const AttestationForm = ({ isEdit = false }) => {
         }
     };
 
-
     const [formAttestat, setFormAttestat] = useState({
         attestations: [
             { type: '', theory: '', practice: '' }
@@ -342,7 +341,6 @@ const AttestationForm = ({ isEdit = false }) => {
     });
 
     const [qrUrl, setQrUrl] = useState('');
-    const [passport, setPassport] = useState('');
     const [selectedFiles, setSelectedFiles] = useState([]);
 
     const addAttestation = () => {
