@@ -50,6 +50,32 @@ const countries = ['Россия', 'Узбекистан', 'Казахстан',
 const AttestationForm = ({ isEdit = false }) => {
     const notify = useNotifier();
 
+    const [openConfirm, setOpenConfirm] = useState(false);
+    const [certificateNumber, setCertificateNumber] = useState('');
+    const [form, setForm] = useState({
+        fullName: '',
+        passport: '',
+        passportCountry: '',
+        profession: '',
+        visitDate: '',
+        conviction: 'Нет',
+        rfBan: 'Разрешено',
+        attestation:{} ,
+        photoUrls : [],
+    });
+    const [originalPassport, setOriginalPassport] = useState(null);
+    const [formAttestat, setFormAttestat] = useState({
+        attestations: [
+            { type: '', theory: '', practice: '' }
+        ]
+    });
+    const [qrUrl, setQrUrl] = useState('');
+    const [selectedFiles, setSelectedFiles] = useState([]);
+
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { passport: paramPassport } = useParams();
+
     const downloadQRCodePdf = async (qrUrl, certificateNumber) => {
         try {
             if (!qrUrl.startsWith('data:image')) {
@@ -133,57 +159,12 @@ const AttestationForm = ({ isEdit = false }) => {
             notify('Ошибка при генерации PDF', "error");
         }
     };
-    const [openConfirm, setOpenConfirm] = useState(false);
-    const [certificateNumber, setCertificateNumber] = useState('');
+    const removeAttestation = (index) => {
+        if (formAttestat.attestations.length === 1) return;
 
-    const [form, setForm] = useState({
-        fullName: '',
-        passport: '',
-        passportCountry: '',
-        profession: '',
-        visitDate: '',
-        conviction: 'Нет',
-        rfBan: 'Разрешено',
-        attestation:{} ,
-        photoUrls : [],
-    });
-    const location = useLocation();
-    const navigate = useNavigate();
-
-    const [originalPassport, setOriginalPassport] = useState(null);
-    const { passport: paramPassport } = useParams();
-
-    useEffect(() => {
-        const loadData = async () => {
-            const currentPassport = paramPassport || location.state?.passport;
-            if (!currentPassport) return;
-
-            try {
-                const res = await axios.get(`${API}/attestation/search`, {
-                    params: { passport: currentPassport }
-                });
-
-                setForm(res.data);
-                if (Array.isArray(res.data.attestations)) {
-                    setFormAttestat({ attestations: res.data.attestations });
-                }
-
-                setOriginalPassport(res.data.passport);
-                setSelectedFiles(res.data.photoUrls || []);
-            } catch (err) {
-                console.error('Ошибка при загрузке анкеты:', err);
-            }
-        };
-
-        loadData();
-    }, [paramPassport, location.state]);
-    useEffect(() => {
-        if (originalPassport && form.passport !== originalPassport) {
-            setOriginalPassport(null);
-        }
-    }, [form.passport]);
-
-
+        const updated = formAttestat.attestations.filter((_, i) => i !== index);
+        setFormAttestat(prev => ({ ...prev, attestations: updated }));
+    };
 
     const onChange = (e) => {
         const { name, value, files } = e.target;
@@ -191,6 +172,67 @@ const AttestationForm = ({ isEdit = false }) => {
             ...form,
             [name]: files ? files[0] : value,
         });
+    };
+
+    const clearForm = () => {
+        setForm({
+            fullName: '',
+            passport: '',
+            passportCountry: '',
+            profession: '',
+            visitDate: '',
+            conviction: 'Нет',
+            rfBan: 'Разрешено',
+            photoUrls: [],
+        });
+        setFormAttestat({
+            attestations: [{ type: '', theory: '', practice: '' }]
+        });
+        setOriginalPassport(null);
+        setSelectedFiles([]);
+        setQrUrl('');
+        setCertificateNumber('');
+        if (location.state) navigate('/', { replace: true });
+    };
+    const handleDeleteAttestation = async () => {
+        if (!originalPassport) return;
+
+        setOpenConfirm(false); // закрыть диалог
+
+        try {
+            await axios.delete(`${API}/attestation/delete`, {
+                data: { passport: originalPassport }
+            });
+
+            notify('Анкета удалена', 'success');
+
+            // Очистить всё
+            setForm({
+                fullName: '',
+                passport: '',
+                passportCountry: '',
+                profession: '',
+                visitDate: '',
+                conviction: 'Нет',
+                rfBan: 'Разрешено',
+                photoUrls: [],
+            });
+            setCertificateNumber('');
+
+            setFormAttestat({
+                attestations: [{ type: '', theory: '', practice: '' }]
+            });
+
+            setSelectedFiles([]);
+            setQrUrl('');
+            setOriginalPassport(null);
+
+            // Переход на главную
+            navigate('/');
+        } catch (err) {
+            console.error('Ошибка при удалении анкеты:', err);
+            notify('Ошибка при удалении', 'error');
+        }
     };
     const handleSubmit = async () => {
         if (!form.passport?.trim()) {
@@ -279,75 +321,6 @@ const AttestationForm = ({ isEdit = false }) => {
             notify(errorMessage, 'error');
         }
     };
-    const clearForm = () => {
-        setForm({
-            fullName: '',
-            passport: '',
-            passportCountry: '',
-            profession: '',
-            visitDate: '',
-            conviction: 'Нет',
-            rfBan: 'Разрешено',
-            photoUrls: [],
-        });
-        setFormAttestat({
-            attestations: [{ type: '', theory: '', practice: '' }]
-        });
-        setOriginalPassport(null);
-        setSelectedFiles([]);
-        setQrUrl('');
-        setCertificateNumber('');
-        if (location.state) navigate('/', { replace: true });
-    };
-    const handleDeleteAttestation = async () => {
-        if (!originalPassport) return;
-
-        setOpenConfirm(false); // закрыть диалог
-
-        try {
-            await axios.delete(`${API}/attestation/delete`, {
-                data: { passport: originalPassport }
-            });
-
-            notify('Анкета удалена', 'success');
-
-            // Очистить всё
-            setForm({
-                fullName: '',
-                passport: '',
-                passportCountry: '',
-                profession: '',
-                visitDate: '',
-                conviction: 'Нет',
-                rfBan: 'Разрешено',
-                photoUrls: [],
-            });
-            setCertificateNumber('');
-
-            setFormAttestat({
-                attestations: [{ type: '', theory: '', practice: '' }]
-            });
-
-            setSelectedFiles([]);
-            setQrUrl('');
-            setOriginalPassport(null);
-
-            // Переход на главную
-            navigate('/');
-        } catch (err) {
-            console.error('Ошибка при удалении анкеты:', err);
-            notify('Ошибка при удалении', 'error');
-        }
-    };
-
-    const [formAttestat, setFormAttestat] = useState({
-        attestations: [
-            { type: '', theory: '', practice: '' }
-        ]
-    });
-    const [qrUrl, setQrUrl] = useState('');
-    const [selectedFiles, setSelectedFiles] = useState([]);
-
     const addAttestation = () => {
         setFormAttestat(prev => ({
             ...prev,
@@ -357,7 +330,6 @@ const AttestationForm = ({ isEdit = false }) => {
             ]
         }));
     };
-
     const handleAttestationChange = (index, field, value) => {
         const updated = [...formAttestat.attestations];
         updated[index][field] = value;
@@ -377,12 +349,6 @@ const AttestationForm = ({ isEdit = false }) => {
         } catch (err) {
             console.error('Ошибка генерации QR-кода', err);
         }
-    };
-    const removeAttestation = (index) => {
-        if (formAttestat.attestations.length === 1) return;
-
-        const updated = formAttestat.attestations.filter((_, i) => i !== index);
-        setFormAttestat(prev => ({ ...prev, attestations: updated }));
     };
     const handleUpload = async (event) => {
         const formData = new FormData();
@@ -434,6 +400,51 @@ const AttestationForm = ({ isEdit = false }) => {
             console.error('Ошибка при скачивании файла:', err);
         }
     };
+
+    useEffect(() => {
+        const loadData = async () => {
+            const currentPassport = paramPassport || location.state?.passport;
+            if (!currentPassport) return;
+
+            try {
+                const res = await axios.get(`${API}/attestation/search`, {
+                    params: { passport: currentPassport }
+                });
+
+                setForm(res.data);
+                if (Array.isArray(res.data.attestations)) {
+                    setFormAttestat({ attestations: res.data.attestations });
+                }
+
+                const loadedData = { ...res.data };
+
+                // ✅ Преобразуем дату к формату YYYY-MM-DD
+                if (loadedData.visitDate) {
+                    const dateObj = new Date(loadedData.visitDate);
+                    if (!isNaN(dateObj.getTime())) {
+                        loadedData.visitDate = dateObj.toISOString().split('T')[0];
+                    } else {
+                        console.warn('Некорректная дата:', loadedData.visitDate);
+                        loadedData.visitDate = '';
+                    }
+                }
+
+                setForm(loadedData);
+
+                setOriginalPassport(res.data.passport);
+                setSelectedFiles(res.data.photoUrls || []);
+            } catch (err) {
+                console.error('Ошибка при загрузке анкеты:', err);
+            }
+        };
+
+        loadData();
+    }, [paramPassport, location.state]);
+    useEffect(() => {
+        if (originalPassport && form.passport !== originalPassport) {
+            setOriginalPassport(null);
+        }
+    }, [form.passport]);
 
     return (
         <Container maxWidth="sm" sx={{ mt: 4, mb: 6 }}>
