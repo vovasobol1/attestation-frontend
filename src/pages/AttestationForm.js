@@ -57,6 +57,7 @@ const AttestationForm = ({ isEdit = false }) => {
         passport: '',
         passportCountry: '',
         profession: '',
+        rank: '',
         visitDate: '',
         conviction: 'Нет',
         rfBan: 'Разрешено',
@@ -76,89 +77,197 @@ const AttestationForm = ({ isEdit = false }) => {
     const location = useLocation();
     const { passport: paramPassport } = useParams();
 
-    const downloadQRCodePdf = async (qrUrl, certificateNumber) => {
+
+    const downloadQRCodePdf = async (qrUrl, certificateNumber, fullName , profession , rank , date) => {
         try {
             if (!qrUrl.startsWith('data:image')) {
                 notify("QR-код ещё не сгенерирован", "error");
                 return;
             }
 
-            const pdfDoc = await PDFDocument.create();
-            pdfDoc.registerFontkit(fontkit);
-            const page = pdfDoc.addPage([595, 842]); // A4
+            const templateBytes = await fetch('/templates/certificate_template.pdf').then(res => res.arrayBuffer());
+            const pdfDoc = await PDFDocument.load(templateBytes);
 
-            const fontBytes = await fetch('/fonts/Roboto-Medium.ttf').then(res => res.arrayBuffer());
-            const customFont = await pdfDoc.embedFont(fontBytes);
+            const [page] = pdfDoc.getPages();
 
-
-            // Добавляем номер сертификата в правом верхнем углу
-
-
-            const text = certificateNumber.toString().padStart(6, '0');
-            const fontSize = 14;
-            const textWidth = customFont.widthOfTextAtSize(text, fontSize);
-
-
-
-            page.drawText(text, {
-                x: 595 - textWidth - 20, // 20 px от правого края
-                y: 842 - fontSize - 20,  // 20 px от верхнего края
-                size: fontSize,
-                font: customFont,
-                color: rgb(0, 0, 0)
-            });
-
-
-
-
-
-            const titleRu = 'Сертификат о прохождении аттестации';
-            const titleEn = 'Certificate of Completion of Attestation';
-            const titleFontSize = 18;
-
-            const titleRuWidth = customFont.widthOfTextAtSize(titleRu, titleFontSize);
-            const titleEnWidth = customFont.widthOfTextAtSize(titleEn, titleFontSize);
-
-            page.drawText(titleRu, {
-                x: (595 - titleRuWidth) / 2,
-                y: 740,
-                size: titleFontSize,
-                font: customFont,
-                color: rgb(0, 0, 0)
-            });
-
-            page.drawText(titleEn, {
-                x: (595 - titleEnWidth) / 2,
-                y: 715,
-                size: titleFontSize,
-                font: customFont,
-                color: rgb(0, 0, 0)
-            });
-
-
-            // Добавляем QR в центр
+            // Встраиваем QR-код
             const pngImageBytes = await fetch(qrUrl).then((res) => res.arrayBuffer());
             const pngImage = await pdfDoc.embedPng(pngImageBytes);
-            const pngDims = pngImage.scale(1);
-
-            const x = (595 - pngDims.width) / 2;
-            const y = (842 - pngDims.height) / 2;
 
             page.drawImage(pngImage, {
-                x,
-                y,
-                width: pngDims.width,
-                height: pngDims.height,
+                x: 130,
+                y: 1090,
+                width: 185,
+                height: 185,
             });
+
+            pdfDoc.registerFontkit(fontkit); // обязательно!
+
+            const fontBytes = await fetch('/fonts/RobotoCondensed-Medium.ttf').then(res => res.arrayBuffer());
+            const customFont = await pdfDoc.embedFont(fontBytes);
+
+            page.drawText(`№ ${certificateNumber}/2025`, {
+                x: 550,
+                y: 1325,
+                size: 22,
+                font: customFont,
+                color: rgb(8 / 255, 110 / 255, 182 / 255)
+            });
+
+
+            const fontBebasBytes = await fetch('/fonts/bebas.ttf').then(res => res.arrayBuffer());
+            const customBebasFont = await pdfDoc.embedFont(fontBebasBytes);
+
+            page.drawText(`${fullName}`, {
+                x: 80,
+                y: 750,
+                size: 57,
+                font: customBebasFont,
+                color: rgb(8 / 255, 110 / 255, 182 / 255)
+            });
+
+
+            // Собираем две строки
+            const line1 = `${profession}, прошёл проверку знаний`;
+            const line2 = 'и соответствует требованиям по профессии.';
+
+            // Вставляем в PDF
+            page.drawText(line1, {
+                x: 80,
+                y: 700,
+                font: customFont,
+                size: 22,
+                color: rgb(0, 0, 0),
+            });
+
+            page.drawText(line2, {
+                x: 80,
+                y: 680,
+                font: customFont,
+                size: 22,
+                color: rgb(0, 0, 0),
+            });
+
+
+            const certLine1 = `Настоящий сертификат подтверждает что ${fullName} может`;
+            const certLine2 = `осуществять профессиональную деятельность на строительных проектах Группы "Газстройпром"`;
+            const certLine3 = `по профессии ${profession   }.`;
+
+            page.drawText(certLine1, {
+                x: 80,
+                y: 520,
+                font: customFont,
+                size: 22,
+                color: rgb(0, 0, 0),
+            });
+
+            page.drawText(certLine2, {
+                x: 80,
+                y: 500,
+                font: customFont,
+                size: 22,
+                color: rgb(0, 0, 0),
+            });
+
+            page.drawText(certLine3, {
+                x: 80,
+                y: 480,
+                font: customFont,
+                size: 22,
+                color: rgb(0, 0, 0),
+            });
+
+            const arialBytes = await fetch('/fonts/ArialMT.ttf').then(res => res.arrayBuffer());
+            const arialFont = await pdfDoc.embedFont(arialBytes);
+
+            page.drawText(`${profession}`, {
+                x: 80,
+                y: 435,
+                font: arialFont,
+                size: 22,
+                color: rgb(8 / 255, 110 / 255, 182 / 255)
+            });
+
+            const rankText = `Разряд: ${rank || '-'}`;
+            page.drawText(`Разряд: ${rankText}`, {
+                x: 80,
+                y: 405,
+                font: arialFont,
+                size: 22,
+                color: rgb(8 / 255, 110 / 255, 182 / 255)
+            });
+
+            const dateObj = new Date(date);
+            const formattedDate = dateObj.toLocaleDateString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            }) + ' г.';
+            const dateLine = `Дата проверки: ${formattedDate}`;
+            const orgLine = 'Организация: АО «Газстройпром»';
+
+            const calibriBytes = await fetch('/fonts/Calibri.ttf').then(res => res.arrayBuffer());
+            const calibriFont = await pdfDoc.embedFont(calibriBytes);
+
+            page.drawText(dateLine, {
+                x: 80,
+                y: 350,
+                font: calibriFont,
+                size: 18,
+                color: rgb(0, 0, 0)
+            });
+
+            page.drawText(orgLine, {
+                x: 80,
+                y: 330,
+                font: calibriFont,
+                size: 18,
+                color: rgb(0, 0, 0)
+            });
+
+
+            const certNumFormatted = certificateNumber.toString().padStart(2, '0');
+
+            // формат года: последние 2 цифры, с ведущим нулём если нужно
+            const year = dateObj.getFullYear();
+            const yearShort = (year % 100).toString().padStart(3, '0');
+            const protocolLine1 = `Сертификат выдан на основании`;
+            const protocolLine2 = `протокола №${certificateNumber}/${yearShort} от ${formattedDate}`;
+
+            page.drawText(protocolLine1, {
+                x: 700,
+                y: 350,
+                font: calibriFont,
+                size: 18,
+                color: rgb(0, 0, 0),
+            });
+
+            page.drawText(protocolLine2, {
+                x: 700,
+                y: 330,
+                font: calibriFont,
+                size: 18,
+                color: rgb(0, 0, 0),
+            });
+
+            const issueLine = `Дата выдачи: ${formattedDate}`;
+            page.drawText(issueLine, {
+                x: 830 ,
+                y: 90,
+                font: customFont,
+                size: 16,
+                color: rgb(8 / 255, 110 / 255, 182 / 255)
+            });
+
 
             const pdfBytes = await pdfDoc.save();
             const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-            saveAs(blob, 'qr-code.pdf');
+            saveAs(blob, `certificate_${fullName.replace(/\s+/g, '_')}.pdf`);
         } catch (err) {
-            console.error('Ошибка при создании PDF:', err);
-            notify('Ошибка при генерации PDF', "error");
+            console.error('Ошибка при скачивании PDF:', err);
         }
     };
+
     const removeAttestation = (index) => {
         if (formAttestat.attestations.length === 1) return;
 
@@ -240,6 +349,11 @@ const AttestationForm = ({ isEdit = false }) => {
             return;
         }
 
+        if (!form.visitDate?.trim()) {
+            notify('выберите дату проверки', 'error');
+            return;
+        }
+
         try {
             // --- Подготовка файлов к загрузке ---
             let newPhotoUrls = [];
@@ -276,6 +390,12 @@ const AttestationForm = ({ isEdit = false }) => {
                 photoUrls,
                 attestations: formAttestat.attestations
             };
+
+            if (form.rank?.toString().trim()) {
+                preparedForm.rank = form.rank.toString();
+            } else {
+                preparedForm.rank = ''; // или можешь просто не добавлять, если пусто
+            }
 
             if (form.visitDate?.trim()) {
                 preparedForm.visitDate = new Date(form.visitDate);
@@ -496,6 +616,26 @@ const AttestationForm = ({ isEdit = false }) => {
                         options={professions}
                         onChange={onChange}
                     />
+                </Grid>
+
+                <Grid item>
+                    <FormControl fullWidth>
+                        <InputLabel id="rank-label">Разряд</InputLabel>
+                        <Select
+                            labelId="rank-label"
+                            id="rank"
+                            name="rank"
+                            value={form.rank}
+                            label="Разряд"
+                            onChange={onChange}
+                        >
+                            {[...Array(8)].map((_, i) => (
+                                <MenuItem key={i + 1} value={i + 1}>
+                                    {i + 1}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
                 </Grid>
 
                 <Grid item>
@@ -761,7 +901,7 @@ const AttestationForm = ({ isEdit = false }) => {
                 <Box mt={2} display="flex" flexDirection="column" alignItems="center">
                     <img src={qrUrl} alt="QR Code" style={{ width: 200, height: 200 }} />
 
-                    <Button variant="outlined" onClick={() => downloadQRCodePdf(qrUrl, certificateNumber)}>
+                    <Button variant="outlined" onClick={() => downloadQRCodePdf(qrUrl, certificateNumber , form.fullName ,form.profession , form.rank , form.visitDate)}>
                         Скачать QR-код в PDF
                     </Button>
                 </Box>

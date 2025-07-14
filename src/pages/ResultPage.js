@@ -57,6 +57,7 @@ const ResultPage = () => {
         ['Паспорт', data.passport],
         ['Страна паспорта', data.passportCountry],
         ['Профессия', data.profession],
+        ['Разряд', data.rank || '—'],
         ['Судимость', data.conviction],
         ['Запрет в РФ', data.rfBan],
         ['Дата визита', data.visitDate ? new Date(data.visitDate).toLocaleDateString() : '—'],
