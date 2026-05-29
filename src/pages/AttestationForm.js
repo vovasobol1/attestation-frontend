@@ -22,6 +22,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import {useNotifier} from "../components/Notifier";
 import SelectWithOther from "../components/SelectWithOter";
 import ConfirmDialog from "../components/ConfirmDialog";
+import ExportDialog from "../components/ExportDialog";
 
 
 const professions = [
@@ -51,6 +52,7 @@ const AttestationForm = ({ isEdit = false }) => {
     const notify = useNotifier();
 
     const [openConfirm, setOpenConfirm] = useState(false);
+    const [openExport, setOpenExport] = useState(false);
     const [certificateNumber, setCertificateNumber] = useState('');
     const [form, setForm] = useState({
         fullName: '',
@@ -569,11 +571,40 @@ const AttestationForm = ({ isEdit = false }) => {
     return (
         <Container maxWidth="sm" sx={{ mt: 4, mb: 6 }}>
 
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    justifyContent: 'space-between',
+                    alignItems: { xs: 'stretch', sm: 'center' },
+                    gap: 1,
+                    mb: 2,
+                }}
+            >
                 <Typography variant="h5">Анкета аттестации </Typography>
-                <Button variant="outlined" onClick={() => navigate('/search')}>
-                    Поиск анкеты по паспорту
-                </Button>
+                <Box
+                    sx={{
+                        display: 'flex',
+                        flexDirection: { xs: 'column', sm: 'row' },
+                        gap: 1,
+                    }}
+                >
+                    <Button
+                        variant="outlined"
+                        fullWidth={false}
+                        sx={{ width: { xs: '100%', sm: 'auto' } }}
+                        onClick={() => navigate('/search')}
+                    >
+                        Поиск анкеты по паспорту
+                    </Button>
+                    <Button
+                        variant="contained"
+                        sx={{ width: { xs: '100%', sm: 'auto' } }}
+                        onClick={() => setOpenExport(true)}
+                    >
+                        Выгрузить в Excel
+                    </Button>
+                </Box>
             </Box>
 
             <Grid container spacing={2} direction="column">
@@ -895,6 +926,8 @@ const AttestationForm = ({ isEdit = false }) => {
                 title="Удаление анкеты"
                 message="Вы уверены, что хотите удалить эту анкету? Это действие нельзя отменить."
             />
+
+            <ExportDialog open={openExport} onClose={() => setOpenExport(false)} />
 
 
             {qrUrl && (
